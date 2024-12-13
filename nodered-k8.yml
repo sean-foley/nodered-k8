@@ -1,0 +1,153 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nodered
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nodered-pvc-data
+  namespace: nodered
+spec:
+  storageClassName: nfs-csi
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 30Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nodered
+  name: nodered
+  namespace: nodered
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: nodered
+  template:
+    metadata:
+      labels:
+        app: nodered
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: nodered
+      volumes:
+      - name: nodered-data
+        persistentVolumeClaim:
+          claimName: nodered-pvc-data
+      containers:
+      - env:
+        image: nodered/node-red
+        name: nodered
+        #imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "250m"
+          limits:
+            memory: "750Mi"
+            cpu: "750m"
+        ports:
+        - containerPort: 1880
+          name: nodered-tcp
+          protocol: TCP
+#        startupProbe:
+#          initialDelaySeconds: 10
+#          failureThreshold: 30
+#          periodSeconds: 10
+#          httpGet:
+#            path: /health
+#            port: 1880
+#        livenessProbe:
+#          initialDelaySeconds: 10
+#          periodSeconds: 10
+#          failureThreshold: 30
+#          httpGet:
+#            path: /health
+#            port: 1880
+        volumeMounts:
+        - mountPath: /data
+          name: nodered-data
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nodered
+  name: nodered-tcp
+  namespace: nodered
+spec:
+  selector:
+    app: nodered
+  ports:
+  - port: 80
+    targetPort: 1880
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 1880
+    name: https
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nodered
+  namespace: ingress
+spec:
+  selector:
+    name: nginx-ingress-microk8s
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 443
+    name: https
+  type: LoadBalancer
+  loadBalancerIP: 192.168.30.208
+  sessionAffinity: ClientIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nodered-ingress
+  namespace: nodered
+  labels:
+    app: nginx-ingress-nodered
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt"
+spec:
+  rules:
+  - host: nodered.padnet.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nodered-tcp
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - nodered.padnet.io
+    # cert-manager will store the created cert in this secret
+    secretName: nodered.padnet.io.tls
