@@ -71,14 +71,14 @@ spec:
           failureThreshold: 30
           periodSeconds: 10
           httpGet:
-            path: /health
+            path: /
             port: nodered-tcp
         livenessProbe:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 30
           httpGet:
-            path: /health
+            path: /
             port: nodered-tcp
         volumeMounts:
         - mountPath: /data
