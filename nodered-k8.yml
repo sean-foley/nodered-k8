@@ -66,20 +66,20 @@ spec:
         - containerPort: 1880
           name: nodered-tcp
           protocol: TCP
-#        startupProbe:
-#          initialDelaySeconds: 10
-#          failureThreshold: 30
-#          periodSeconds: 10
-#          httpGet:
-#            path: /health
-#            port: 1880
-#        livenessProbe:
-#          initialDelaySeconds: 10
-#          periodSeconds: 10
-#          failureThreshold: 30
-#          httpGet:
-#            path: /health
-#            port: 1880
+        startupProbe:
+          initialDelaySeconds: 10
+          failureThreshold: 30
+          periodSeconds: 10
+          httpGet:
+            path: /health
+            port: nodered-tcp
+        livenessProbe:
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 30
+          httpGet:
+            path: /health
+            port: nodered-tcp
         volumeMounts:
         - mountPath: /data
           name: nodered-data
